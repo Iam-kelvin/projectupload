@@ -49,6 +49,25 @@ If the database has no users, the first registered account becomes `super_admin`
 - `/api/projects` - Public project API
 - `/api/stats` - Public stats API
 
+## Vercel Deployment Notes
+
+This repository includes `vercel.json` and `api/index.php` so Vercel does not treat the app as a plain Vite/static project looking for `dist`. The config sends Laravel requests through a PHP serverless entrypoint and deploys the `public` directory for assets.
+
+Set these Vercel environment variables at minimum:
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+APP_KEY=base64:your-generated-key
+APP_URL=https://your-vercel-domain.vercel.app
+LOG_CHANNEL=stderr
+CACHE_DRIVER=array
+SESSION_DRIVER=cookie
+APP_STORAGE_PATH=/tmp/laravel_storage
+```
+
+Use an external MySQL database for `DB_*` values. Local file uploads on Vercel are not persistent, so production PDF storage should be moved to S3-compatible storage before relying on uploads there.
+
 ## PDF Text Extraction
 
 The app tries to use the `pdftotext` command if it is installed. You can configure its path:
