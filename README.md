@@ -1,66 +1,89 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Project Library
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A Laravel 10 repository for uploading, browsing, searching, previewing, and managing project PDF documents.
 
-## About Laravel
+## Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Public homepage with search and links to browse projects.
+- Project metadata: title, author/student, supervisor, type, year, category, tags, keywords, and abstract.
+- Existing tags can be selected during upload, and new comma-separated tags can be created inline when nothing fits.
+- PDF upload, inline preview, download, duplicate-file protection, and best-effort PDF text extraction for search.
+- Advanced search across metadata, tags, categories, abstracts, keywords, and extracted PDF text.
+- Role-based admin panel:
+  - `super_admin`: full control, including user management and protected site controls.
+  - `admin`: manage projects, categories, tags, and project deletion.
+  - `moderator`: upload and edit projects only.
+  - `user`: browse public content.
+- Dashboard stats for total projects, uploads by year, top supervisors, and project types.
+- JSON API for auth, projects, categories, tags, and stats.
+- Feature tests for upload, search, show, download/preview, validation, API, and permissions.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Setup
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan db:seed
+php artisan serve
+```
 
-## Learning Laravel
+Update `.env` with your database settings before running migrations. The current local project uses MySQL.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+`php artisan db:seed` adds broad starter categories and tags for a general project library across sciences, arts, business, law, health, education, agriculture, engineering, media, public policy, and interdisciplinary work. It uses safe upserts, so rerunning it will not duplicate the starter taxonomy.
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## First Admin Account
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Register from `/register`.
 
-## Laravel Sponsors
+If the database has no users, the first registered account becomes `super_admin`. Older `site_control` records are migrated into `super_admin`.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Useful URLs
 
-### Premium Partners
+- `/` - Homepage
+- `/projects` - Public project browser and advanced search
+- `/login` - Login
+- `/register` - Register
+- `/admin` - Admin dashboard for moderator and above
+- `/api/projects` - Public project API
+- `/api/stats` - Public stats API
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+## PDF Text Extraction
 
-## Contributing
+The app tries to use the `pdftotext` command if it is installed. You can configure its path:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```env
+PDFTOTEXT_PATH=pdftotext
+```
 
-## Code of Conduct
+If `pdftotext` is unavailable, the app falls back to a simple built-in extractor. That fallback is enough for some PDFs but not every compressed or scanned document.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## API Auth
 
-## Security Vulnerabilities
+Use Sanctum token endpoints:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```http
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/logout
+```
 
-## License
+Authenticated staff roles can create, update, and delete projects through `/api/projects`.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Tests
+
+This PHP install has MySQL support but not SQLite, so tests use database transactions against the configured testing database connection. Run migrations first, then:
+
+```bash
+php artisan test
+```
+
+## Cache Reset After Moving The Project
+
+If the app was moved to a new folder and Laravel still points to old paths, clear generated caches:
+
+```bash
+php artisan optimize:clear
+php artisan view:clear
+```
