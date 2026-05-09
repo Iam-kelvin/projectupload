@@ -65,14 +65,36 @@ CACHE_DRIVER=array
 SESSION_DRIVER=cookie
 SESSION_SECURE_COOKIE=true
 APP_STORAGE_PATH=/tmp/laravel_storage
-DB_CONNECTION=mysql
 ```
 
 `APP_STORAGE_PATH=/tmp/laravel_storage` is intentional on Vercel. Laravel still needs a writable place for generated views, cache files, sessions if enabled, and logs. Vercel functions can use `/tmp`, but it is temporary and must not be treated as permanent file storage.
 
-Use an external MySQL database. If the provider gives one connection string, set `DATABASE_URL` and keep `DB_CONNECTION=mysql`. If it gives separate values, set:
+Do not commit production secrets in `vercel.json` or `.env`. Add them in Vercel Dashboard -> Project -> Settings -> Environment Variables, then redeploy. If `APP_KEY` was ever committed, generate a new one and update Vercel.
+
+### Neon/PostgreSQL on Vercel
+
+Neon works with this app, but Neon is PostgreSQL, not MySQL. Use these variables:
 
 ```env
+DB_CONNECTION=pgsql
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+```
+
+The Neon Vercel integration can also inject `POSTGRES_URL` and `PG*` variables. This project supports those too, but `DB_CONNECTION=pgsql` is still the important Laravel switch.
+
+### MySQL on Vercel
+
+If you prefer to keep MySQL, use an external MySQL-compatible database such as PlanetScale, Aiven, Railway, or a managed MySQL service. If the provider gives one connection string, set:
+
+```env
+DB_CONNECTION=mysql
+DATABASE_URL=mysql://user:password@host:3306/database
+```
+
+If it gives separate values, set:
+
+```env
+DB_CONNECTION=mysql
 DB_HOST=
 DB_PORT=3306
 DB_DATABASE=
@@ -82,14 +104,16 @@ DB_PASSWORD=
 
 PlanetScale-style Vercel variables such as `PLANETSCALE_DB_HOST`, `PLANETSCALE_DB`, `PLANETSCALE_DB_USERNAME`, and `PLANETSCALE_DB_PASSWORD` are also supported by `config/database.php`.
 
-After setting production database variables, run migrations and the starter taxonomy seed against that database:
+After setting production database variables, run migrations and the starter taxonomy seed against that database. The simplest path is to temporarily put the production database variables in your local `.env`, run:
 
 ```bash
 php artisan migrate --force
 php artisan db:seed --force
 ```
 
-Local file uploads on Vercel are not persistent. For production PDFs, use external object storage and store only the file URL/path, file hash, and metadata in MySQL. The most Laravel-native path is S3-compatible storage such as Cloudflare R2, AWS S3, DigitalOcean Spaces, or Supabase Storage through Laravel's `s3` disk. Vercel Blob can also work, but the cleanest implementation is to upload from the browser or a small Vercel function to Blob, then save the returned Blob URL in Laravel.
+Then restore your local `.env` values.
+
+Local file uploads on Vercel are not persistent. For production PDFs, use external object storage and store only the file URL/path, file hash, and metadata in the database. The most Laravel-native path is S3-compatible storage such as Cloudflare R2, AWS S3, DigitalOcean Spaces, or Supabase Storage through Laravel's `s3` disk. Vercel Blob can also work, but the cleanest implementation is to upload from the browser or a small Vercel function to Blob, then save the returned Blob URL in Laravel.
 
 ## PDF Text Extraction
 

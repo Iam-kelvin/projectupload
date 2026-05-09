@@ -34,15 +34,5 @@
             "src": "/(.*)",
             "dest": "/api/index.php"
         }
-    ],
-    "env": {
-        "APP_ENV": "production",
-        "APP_DEBUG": "false",
-        "APP_KEY": "base64:jMNwZ/p8wgPszUqxpQ8Anf1l5Mvnk92fJRskdMZEdB8=",
-        "APP_URL": "https://projectupload-sage.vercel.app",
-        "LOG_CHANNEL": "stderr",
-        "CACHE_DRIVER": "array",
-        "SESSION_DRIVER": "cookie",
-        "SESSION_SECURE_COOKIE": "true"
-    }
+    ]
 }
