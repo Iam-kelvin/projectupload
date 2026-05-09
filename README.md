@@ -63,10 +63,33 @@ APP_URL=https://your-vercel-domain.vercel.app
 LOG_CHANNEL=stderr
 CACHE_DRIVER=array
 SESSION_DRIVER=cookie
+SESSION_SECURE_COOKIE=true
 APP_STORAGE_PATH=/tmp/laravel_storage
+DB_CONNECTION=mysql
 ```
 
-Use an external MySQL database for `DB_*` values. Local file uploads on Vercel are not persistent, so production PDF storage should be moved to S3-compatible storage before relying on uploads there.
+`APP_STORAGE_PATH=/tmp/laravel_storage` is intentional on Vercel. Laravel still needs a writable place for generated views, cache files, sessions if enabled, and logs. Vercel functions can use `/tmp`, but it is temporary and must not be treated as permanent file storage.
+
+Use an external MySQL database. If the provider gives one connection string, set `DATABASE_URL` and keep `DB_CONNECTION=mysql`. If it gives separate values, set:
+
+```env
+DB_HOST=
+DB_PORT=3306
+DB_DATABASE=
+DB_USERNAME=
+DB_PASSWORD=
+```
+
+PlanetScale-style Vercel variables such as `PLANETSCALE_DB_HOST`, `PLANETSCALE_DB`, `PLANETSCALE_DB_USERNAME`, and `PLANETSCALE_DB_PASSWORD` are also supported by `config/database.php`.
+
+After setting production database variables, run migrations and the starter taxonomy seed against that database:
+
+```bash
+php artisan migrate --force
+php artisan db:seed --force
+```
+
+Local file uploads on Vercel are not persistent. For production PDFs, use external object storage and store only the file URL/path, file hash, and metadata in MySQL. The most Laravel-native path is S3-compatible storage such as Cloudflare R2, AWS S3, DigitalOcean Spaces, or Supabase Storage through Laravel's `s3` disk. Vercel Blob can also work, but the cleanest implementation is to upload from the browser or a small Vercel function to Blob, then save the returned Blob URL in Laravel.
 
 ## PDF Text Extraction
 
