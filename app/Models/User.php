@@ -44,6 +44,9 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'field_of_study',
+        'interest_keywords',
+        'preferred_categories',
     ];
 
     /**
@@ -64,11 +67,42 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'preferred_categories' => 'array',
     ];
 
     public function projects()
     {
         return $this->hasMany(Project::class, 'uploaded_by');
+    }
+
+    public function preferredCategoryIds(): array
+    {
+        return collect($this->preferred_categories ?? [])
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    public function interestTerms(): array
+    {
+        return collect([
+            $this->field_of_study,
+            $this->interest_keywords,
+        ])
+            ->filter()
+            ->flatMap(fn ($value) => preg_split('/[\s,;|]+/', (string) $value, -1, PREG_SPLIT_NO_EMPTY))
+            ->map(fn ($term) => trim($term))
+            ->filter(fn ($term) => mb_strlen($term) >= 3)
+            ->unique(fn ($term) => mb_strtolower($term))
+            ->take(12)
+            ->values()
+            ->all();
+    }
+
+    public function hasResearchPreferences(): bool
+    {
+        return $this->field_of_study || $this->interest_keywords || ! empty($this->preferredCategoryIds());
     }
 
     public function roleLabel(): string

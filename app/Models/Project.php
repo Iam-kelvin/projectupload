@@ -50,23 +50,27 @@ class Project extends Model
         $search = trim((string) ($filters['q'] ?? $filters['search'] ?? ''));
 
         if ($search !== '') {
-            $query->where(function ($query) use ($search) {
-                $like = "%{$search}%";
+            $terms = self::searchTerms($search) ?: [$search];
 
-                $query->where('title', 'like', $like)
-                    ->orWhere('student_name', 'like', $like)
-                    ->orWhere('supervisor', 'like', $like)
-                    ->orWhere('project_type', 'like', $like)
-                    ->orWhere('completion_year', 'like', $like)
-                    ->orWhere('abstract', 'like', $like)
-                    ->orWhere('keywords', 'like', $like)
-                    ->orWhere('pdf_text', 'like', $like)
-                    ->orWhereHas('category', function ($query) use ($like) {
-                        $query->where('name', 'like', $like);
-                    })
-                    ->orWhereHas('tags', function ($query) use ($like) {
-                        $query->where('name', 'like', $like);
-                    });
+            $query->where(function ($query) use ($terms) {
+                foreach ($terms as $term) {
+                    $like = "%{$term}%";
+
+                    $query->orWhere('title', 'like', $like)
+                        ->orWhere('student_name', 'like', $like)
+                        ->orWhere('supervisor', 'like', $like)
+                        ->orWhere('project_type', 'like', $like)
+                        ->orWhere('completion_year', 'like', $like)
+                        ->orWhere('abstract', 'like', $like)
+                        ->orWhere('keywords', 'like', $like)
+                        ->orWhere('pdf_text', 'like', $like)
+                        ->orWhereHas('category', function ($query) use ($like) {
+                            $query->where('name', 'like', $like);
+                        })
+                        ->orWhereHas('tags', function ($query) use ($like) {
+                            $query->where('name', 'like', $like);
+                        });
+                }
             });
         }
 
@@ -98,12 +102,50 @@ class Project extends Model
     public function scopeSorted($query, ?string $sort)
     {
         return match ($sort) {
+            'relevance' => $query->latest('id'),
             'oldest' => $query->oldest(),
             'title' => $query->orderBy('title'),
             'year_asc' => $query->orderBy('completion_year')->latest('id'),
             'year_desc' => $query->orderByDesc('completion_year')->latest('id'),
             default => $query->latest(),
         };
+    }
+
+    public function scopeRankedForSearch($query, ?string $search)
+    {
+        $terms = self::searchTerms($search);
+
+        if (! $terms) {
+            return $query;
+        }
+
+        $scoreParts = [];
+        $bindings = [];
+
+        foreach ($terms as $term) {
+            $like = "%{$term}%";
+            $scoreParts[] = 'CASE WHEN title LIKE ? THEN 30 ELSE 0 END';
+            $scoreParts[] = 'CASE WHEN keywords LIKE ? THEN 20 ELSE 0 END';
+            $scoreParts[] = 'CASE WHEN abstract LIKE ? THEN 14 ELSE 0 END';
+            $scoreParts[] = 'CASE WHEN project_type LIKE ? THEN 10 ELSE 0 END';
+            $scoreParts[] = 'CASE WHEN student_name LIKE ? THEN 8 ELSE 0 END';
+            $scoreParts[] = 'CASE WHEN supervisor LIKE ? THEN 8 ELSE 0 END';
+            $scoreParts[] = 'CASE WHEN pdf_text LIKE ? THEN 6 ELSE 0 END';
+            array_push($bindings, $like, $like, $like, $like, $like, $like, $like);
+        }
+
+        return $query->orderByRaw('('.implode(' + ', $scoreParts).') DESC', $bindings);
+    }
+
+    public static function searchTerms(?string $search): array
+    {
+        return collect(preg_split('/[\s,;|]+/', trim((string) $search), -1, PREG_SPLIT_NO_EMPTY))
+            ->map(fn ($term) => trim($term))
+            ->filter(fn ($term) => mb_strlen($term) >= 2)
+            ->unique(fn ($term) => mb_strtolower($term))
+            ->take(8)
+            ->values()
+            ->all();
     }
 
     public function pdfAbsolutePath(): ?string

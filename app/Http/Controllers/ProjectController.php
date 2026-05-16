@@ -12,10 +12,18 @@ class ProjectController extends Controller
 {
     public function index(Request $request)
     {
-        $projects = Project::query()
+        $search = $request->query('q', $request->query('search'));
+        $sort = $request->query('sort') ?: (trim((string) $search) !== '' ? 'relevance' : null);
+
+        $query = Project::query()
             ->with(['category', 'tags'])
-            ->filtered($request->query())
-            ->sorted($request->query('sort'))
+            ->filtered($request->query());
+
+        if (trim((string) $search) !== '' && $sort === 'relevance') {
+            $query->rankedForSearch($search);
+        }
+
+        $projects = $query->sorted($sort)
             ->paginate(12)
             ->withQueryString();
 

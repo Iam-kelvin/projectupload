@@ -13,12 +13,14 @@
                 <button class="button" type="submit">Search</button>
             </form>
             <div class="hero-actions">
-                <a class="button" href="{{ route('projects.index') }}">Browse projects</a>
                 @auth
+                    <a class="button" href="{{ route('dashboard') }}">Open dashboard</a>
+                    <a class="button button-ghost" href="{{ route('projects.index') }}">Browse all projects</a>
                     @if (auth()->user()->canAccessAdminPanel())
                         <a class="button button-secondary" href="{{ route('admin.projects.create') }}">Upload project</a>
                     @endif
                 @else
+                    <a class="button" href="{{ route('projects.index') }}">Browse projects</a>
                     <a class="button button-secondary" href="{{ route('login') }}">Staff login</a>
                 @endauth
             </div>
@@ -50,7 +52,7 @@
                     <article class="project-card">
                         <p class="muted">{{ $project->category?->name ?? 'Uncategorized' }}</p>
                         <h3><a href="{{ route('projects.show', $project) }}">{{ $project->title }}</a></h3>
-                        <p>{{ $project->student_name }} · {{ $project->completion_year }}</p>
+                        <p>{{ $project->student_name }} &middot; {{ $project->completion_year }}</p>
                     </article>
                 @empty
                     <p class="empty-state">No projects have been added yet.</p>

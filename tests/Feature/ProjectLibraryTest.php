@@ -126,6 +126,46 @@ class ProjectLibraryTest extends TestCase
         $this->actingAs($admin)->get(route('admin.users.index'))->assertForbidden();
     }
 
+    public function test_registration_collects_research_preferences_and_opens_dashboard(): void
+    {
+        $category = Category::factory()->create(['name' => 'Health & Life Sciences']);
+
+        $this->post(route('register'), [
+            'name' => 'Nora Ade',
+            'email' => 'nora@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'field_of_study' => 'Public Health',
+            'interest_keywords' => 'maternal health, field survey',
+            'preferred_categories' => [$category->id],
+        ])->assertRedirect(route('dashboard'));
+
+        $user = User::where('email', 'nora@example.com')->firstOrFail();
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertSame('Public Health', $user->field_of_study);
+        $this->assertSame('maternal health, field survey', $user->interest_keywords);
+        $this->assertSame([$category->id], $user->preferredCategoryIds());
+    }
+
+    public function test_login_redirects_normal_users_to_research_dashboard(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'reader@example.com',
+            'role' => User::ROLE_USER,
+        ]);
+
+        $this->post(route('login'), [
+            'email' => 'reader@example.com',
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard'));
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Research desk');
+    }
+
     public function test_pdf_preview_and_download_routes_stream_files(): void
     {
         Storage::fake('local');
@@ -177,6 +217,57 @@ class ProjectLibraryTest extends TestCase
 
         $this->assertDatabaseHas('tags', ['slug' => 'public-policy']);
         $this->assertDatabaseHas('tags', ['slug' => 'field-survey']);
+    }
+
+    public function test_registration_captures_interests_and_dashboard_recommends_projects(): void
+    {
+        $category = Category::factory()->create(['name' => 'Health & Life Sciences']);
+        Project::factory()->create([
+            'category_id' => $category->id,
+            'title' => 'Maternal Health Outreach Models',
+            'keywords' => 'maternal health, public policy',
+            'abstract' => 'Community care models for maternal health projects.',
+        ]);
+
+        $this->post(route('register'), [
+            'name' => 'Ada Researcher',
+            'email' => 'ada@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'field_of_study' => 'Public health',
+            'interest_keywords' => 'maternal health, community care',
+            'preferred_categories' => [$category->id],
+        ])->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticated();
+        $this->assertDatabaseHas('users', [
+            'email' => 'ada@example.com',
+            'field_of_study' => 'Public health',
+        ]);
+
+        $this->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Recommended projects')
+            ->assertSee('Maternal Health Outreach Models');
+    }
+
+    public function test_search_results_can_be_ranked_by_relevance(): void
+    {
+        Project::factory()->create([
+            'title' => 'Malaria Vaccine Research',
+            'keywords' => 'immunology',
+            'pdf_text' => 'clinical trial methods',
+        ]);
+
+        Project::factory()->create([
+            'title' => 'General Health Archive',
+            'keywords' => 'archive',
+            'pdf_text' => 'malaria appears once in the appendix',
+        ]);
+
+        $this->get(route('projects.index', ['q' => 'malaria']))
+            ->assertOk()
+            ->assertSeeInOrder(['Malaria Vaccine Research', 'General Health Archive']);
     }
 
     private function projectPayload(Category $category, array $tags = []): array

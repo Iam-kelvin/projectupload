@@ -12,6 +12,9 @@
 
         <nav class="nav-links" aria-label="Primary">
             <a href="{{ route('home') }}">Home</a>
+            @auth
+                <a href="{{ route('dashboard') }}">Dashboard</a>
+            @endauth
             <a href="{{ route('projects.index') }}">Browse</a>
             @auth
                 @if (auth()->user()->canAccessAdminPanel())
@@ -23,6 +26,7 @@
         <div class="nav-actions">
             @auth
                 <span class="role-pill">{{ auth()->user()->roleLabel() }}</span>
+                <a href="{{ route('profile.preferences.edit') }}">Interests</a>
                 <form action="{{ route('logout') }}" method="POST">
                     @csrf
                     <button class="link-button" type="submit">Log out</button>
