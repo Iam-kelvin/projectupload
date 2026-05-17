@@ -8,11 +8,14 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class RegisteredUserController extends Controller
 {
-    public function create()
+    public function create(Request $request)
     {
+        $this->rememberSafeRedirect($request);
+
         $categories = Category::query()->orderBy('name')->get();
 
         return view('auth.register', compact('categories'));
@@ -20,6 +23,8 @@ class RegisteredUserController extends Controller
 
     public function store(Request $request)
     {
+        $this->rememberSafeRedirect($request);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
@@ -44,6 +49,21 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('dashboard');
+        return redirect()->intended(route('dashboard'));
+    }
+
+    private function rememberSafeRedirect(Request $request): void
+    {
+        $redirect = $request->input('redirect', $request->query('redirect'));
+
+        if (! is_string($redirect) || $redirect === '') {
+            return;
+        }
+
+        $host = $request->getSchemeAndHttpHost();
+
+        if (Str::startsWith($redirect, $host) || Str::startsWith($redirect, '/')) {
+            $request->session()->put('url.intended', $redirect);
+        }
     }
 }

@@ -29,6 +29,10 @@
             "dest": "/public/robots.txt"
         },
         {
+            "src": "/blob/project-upload",
+            "dest": "/api/blob-project-upload.js"
+        },
+        {
             "src": "/(.*)",
             "dest": "/api/index.php"
         }

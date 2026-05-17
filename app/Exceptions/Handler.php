@@ -3,6 +3,8 @@
 namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Http\Exceptions\PostTooLargeException;
+use Illuminate\Http\Request;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -25,6 +27,16 @@ class Handler extends ExceptionHandler
     {
         $this->reportable(function (Throwable $e) {
             //
+        });
+
+        $this->renderable(function (PostTooLargeException $e, Request $request) {
+            $message = 'That PDF is larger than the server currently accepts. Try a smaller PDF or use a direct cloud upload flow for very large files.';
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 413);
+            }
+
+            return back()->withErrors(['pdf_file' => $message]);
         });
     }
 }

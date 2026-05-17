@@ -13,6 +13,10 @@
                 <input type="search" name="q" placeholder="Search projects, methods, keywords, or PDF text">
                 <button class="button" type="submit">Search</button>
             </form>
+            <div class="hero-actions">
+                <a class="button" href="{{ route('projects.create') }}">Upload project</a>
+                <a class="button button-secondary" href="{{ route('projects.index') }}">Browse library</a>
+            </div>
         </div>
 
         <aside class="stat-panel" aria-label="Repository summary">
@@ -78,6 +82,85 @@
                     </article>
                 @empty
                     <p class="empty-state">No projects have been added yet.</p>
+                @endforelse
+            </div>
+
+            <div class="section-heading section-heading-spaced">
+                <div>
+                    <p class="eyebrow">Your work</p>
+                    <h2>Uploaded projects</h2>
+                </div>
+                <a href="{{ route('projects.create') }}">Upload new</a>
+            </div>
+
+            <div class="project-list">
+                @forelse ($uploadedProjects as $project)
+                    <article class="project-row compact-row">
+                        <div>
+                            <p class="muted">{{ $project->category?->name ?? 'Uncategorized' }} &middot; {{ $project->completion_year }}</p>
+                            <h2><a href="{{ route('projects.show', $project) }}">{{ $project->title }}</a></h2>
+                            <p>{{ $project->student_name }} @if ($project->supervisor) &middot; {{ $project->supervisor }} @endif</p>
+                        </div>
+                        <div class="row-actions">
+                            <a class="button button-small" href="{{ route('projects.show', $project) }}">View</a>
+                            <a class="button button-small button-secondary" href="{{ route('projects.edit', $project) }}">Edit</a>
+                        </div>
+                    </article>
+                @empty
+                    <p class="empty-state">You have not uploaded any projects yet.</p>
+                @endforelse
+            </div>
+
+            <div class="section-heading section-heading-spaced">
+                <div>
+                    <p class="eyebrow">Saved</p>
+                    <h2>View later</h2>
+                </div>
+            </div>
+
+            <div class="project-list">
+                @forelse ($savedProjects as $project)
+                    <article class="project-row compact-row">
+                        <div>
+                            <p class="muted">{{ $project->category?->name ?? 'Uncategorized' }} &middot; {{ $project->completion_year }}</p>
+                            <h2><a href="{{ route('projects.show', $project) }}">{{ $project->title }}</a></h2>
+                            <p>{{ $project->student_name }} @if ($project->supervisor) &middot; {{ $project->supervisor }} @endif</p>
+                        </div>
+                        <div class="row-actions">
+                            <a class="button button-small" href="{{ route('projects.show', $project) }}">View</a>
+                            <form action="{{ route('projects.unsave', $project) }}" method="POST">
+                                @csrf
+                                @method('DELETE')
+                                <button class="button button-small button-ghost" type="submit">Remove</button>
+                            </form>
+                        </div>
+                    </article>
+                @empty
+                    <p class="empty-state">Saved projects will appear here.</p>
+                @endforelse
+            </div>
+
+            <div class="section-heading section-heading-spaced">
+                <div>
+                    <p class="eyebrow">History</p>
+                    <h2>Recently viewed</h2>
+                </div>
+            </div>
+
+            <div class="project-list">
+                @forelse ($viewedProjects as $project)
+                    <article class="project-row compact-row">
+                        <div>
+                            <p class="muted">{{ $project->category?->name ?? 'Uncategorized' }} &middot; {{ $project->completion_year }}</p>
+                            <h2><a href="{{ route('projects.show', $project) }}">{{ $project->title }}</a></h2>
+                            <p>{{ $project->student_name }} @if ($project->supervisor) &middot; {{ $project->supervisor }} @endif</p>
+                        </div>
+                        <div class="row-actions">
+                            <a class="button button-small" href="{{ route('projects.show', $project) }}">View</a>
+                        </div>
+                    </article>
+                @empty
+                    <p class="empty-state">Projects you open while signed in will appear here.</p>
                 @endforelse
             </div>
         </div>

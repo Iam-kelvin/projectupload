@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Project Library')</title>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    @vite(['resources/js/app.js'])
 </head>
 <body>
     <header class="site-header">
@@ -16,6 +17,9 @@
                 <a href="{{ route('dashboard') }}">Dashboard</a>
             @endauth
             <a href="{{ route('projects.index') }}">Browse</a>
+            @auth
+                <a href="{{ route('projects.create') }}">Upload</a>
+            @endauth
             @auth
                 @if (auth()->user()->canAccessAdminPanel())
                     <a href="{{ route('admin.dashboard') }}">Admin</a>
@@ -56,7 +60,5 @@
 
         @yield('content')
     </main>
-
-    <script src="{{ asset('js/app.js') }}"></script>
 </body>
 </html>

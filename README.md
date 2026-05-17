@@ -1,57 +1,116 @@
 # Project Library
 
-A Laravel 10 repository for uploading, browsing, searching, previewing, and managing project PDF documents.
+A Laravel 10 project repository for uploading, organizing, searching, previewing, saving, and managing academic or professional project PDF documents across many fields.
 
 ## Features
 
-- Public homepage with search and links to browse projects.
-- Project metadata: title, author/student, supervisor, type, year, category, tags, keywords, and abstract.
-- Existing tags can be selected during upload, and new comma-separated tags can be created inline when nothing fits.
-- PDF upload, inline preview, download, duplicate-file protection, and best-effort PDF text extraction for search.
-- Advanced search across metadata, tags, categories, abstracts, keywords, and extracted PDF text.
+- Public homepage, project browser, advanced filters, and full-text search.
+- Project metadata: title, author/student, supervisor, type, year, category, tags, keywords, abstract, PDF text, uploader, and file metadata.
+- Normal users can upload projects, edit their own uploads, save projects for later, and see recently viewed projects.
+- Guests can browse project metadata and text snippets, but must sign in or create an account to continue reading or download files.
+- Login/register can return readers to the exact project page they were viewing.
+- PDF text extraction powers snippets, search, suggested abstracts, suggested categories, suggested keywords, and suggested tags.
+- Duplicate-file protection by hash where a hash is available.
 - Role-based admin panel:
-  - `super_admin`: full control, including user management and protected site controls.
-  - `admin`: manage projects, categories, tags, and project deletion.
-  - `moderator`: upload and edit projects only.
-  - `user`: browse public content.
-- Dashboard stats for total projects, uploads by year, top supervisors, and project types.
+  - `super_admin`: full control, including users and site controls.
+  - `admin`: manage projects, categories, tags, and deletion.
+  - `moderator`: manage projects.
+  - `user`: upload, browse, save, and edit only their own projects.
+- Dashboard sections for recommendations, latest uploads, user uploads, saved projects, viewed projects, and active fields/tags.
 - JSON API for auth, projects, categories, tags, and stats.
-- Feature tests for upload, search, show, download/preview, validation, API, and permissions.
+- Optional direct-to-Vercel-Blob upload so large PDFs bypass Laravel request body limits.
 
-## Setup
+## Local Setup
 
 ```bash
 composer install
+npm install
 cp .env.example .env
 php artisan key:generate
 php artisan migrate
 php artisan db:seed
+npm run build
 php artisan serve
 ```
 
-Update `.env` with your database settings before running migrations. The current local project uses MySQL.
+Set your local database values in `.env` before running migrations.
 
-`php artisan db:seed` adds broad starter categories and tags for a general project library across sciences, arts, business, law, health, education, agriculture, engineering, media, public policy, and interdisciplinary work. It uses safe upserts, so rerunning it will not duplicate the starter taxonomy.
+For larger local PDF uploads, start the server with higher PHP upload limits:
 
-## First Admin Account
+```bash
+composer serve:large
+```
+
+## First Admin
 
 Register from `/register`.
 
-If the database has no users, the first registered account becomes `super_admin`. Older `site_control` records are migrated into `super_admin`.
+If the database has no users, the first registered account becomes `super_admin`. Old `site_control` records are migrated into `super_admin`.
 
 ## Useful URLs
 
 - `/` - Homepage
-- `/projects` - Public project browser and advanced search
+- `/dashboard` - Signed-in research dashboard
+- `/projects` - Project browser and advanced search
+- `/projects/create` - Upload project
 - `/login` - Login
 - `/register` - Register
 - `/admin` - Admin dashboard for moderator and above
 - `/api/projects` - Public project API
 - `/api/stats` - Public stats API
 
-## Vercel Deployment Notes
+## Local vs Aiven Migrations
 
-This repository includes `vercel.json` and `api/index.php` so Vercel does not treat the app as a plain Vite/static project looking for `dist`. The config sends Laravel requests through a PHP serverless entrypoint and deploys the `public` directory for assets.
+You do not run Artisan commands inside Aiven. Aiven is only the database server.
+
+Run migrations from your local project terminal, but point Laravel at the database you want to change.
+
+For local testing, keep `.env` pointed to your local database:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=projectupload_local
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+Then run:
+
+```bash
+php artisan migrate
+php artisan db:seed
+```
+
+For Aiven production, keep a separate `.env.aiven` file with Aiven credentials:
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+DB_CONNECTION=mysql
+DB_HOST=your-aiven-host
+DB_PORT=your-aiven-port
+DB_DATABASE=your-aiven-database
+DB_USERNAME=your-aiven-user
+DB_PASSWORD=your-aiven-password
+```
+
+Then run this from your local project folder:
+
+```bash
+php artisan config:clear
+php artisan migrate --env=aiven --force
+php artisan db:seed --env=aiven --force
+```
+
+That command runs on your computer, but it changes the Aiven database because `--env=aiven` loads `.env.aiven`.
+
+Keep `.env.aiven` ignored by Git.
+
+## Vercel Deployment
+
+This repository includes `vercel.json` and `api/index.php` so Vercel routes Laravel through the PHP serverless entrypoint instead of treating the app as a static Vite site.
 
 Set these Vercel environment variables at minimum:
 
@@ -67,31 +126,62 @@ SESSION_SECURE_COOKIE=true
 APP_STORAGE_PATH=/tmp/laravel_storage
 ```
 
-`APP_STORAGE_PATH=/tmp/laravel_storage` is intentional on Vercel. Laravel still needs a writable place for generated views, cache files, sessions if enabled, and logs. Vercel functions can use `/tmp`, but it is temporary and must not be treated as permanent file storage.
+`APP_STORAGE_PATH=/tmp/laravel_storage` is intentional on Vercel. Laravel needs writable temporary storage for views/cache/logs, but `/tmp` is not permanent file storage.
 
-Do not commit production secrets in `vercel.json` or `.env`. Add them in Vercel Dashboard -> Project -> Settings -> Environment Variables, then redeploy. If `APP_KEY` was ever committed, generate a new one and update Vercel.
+Do not commit production secrets in `.env`, `.env.aiven`, or `vercel.json`. Add secrets in Vercel Dashboard -> Project -> Settings -> Environment Variables.
 
-### Neon/PostgreSQL on Vercel
+## Vercel Blob Direct Upload
 
-Neon works with this app, but Neon is PostgreSQL, not MySQL. Use these variables:
+Direct upload is the recommended production flow for large PDFs on Vercel:
 
-```env
-DB_CONNECTION=pgsql
-DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+1. The browser uploads the PDF straight to Vercel Blob.
+2. Laravel receives only the Blob URL, file key, size, MIME type, client hash, and metadata.
+3. Laravel saves those values in MySQL and does best-effort text extraction from the Blob URL.
+
+Install dependencies:
+
+```bash
+npm install
+composer install
+npm run build
 ```
 
-The Neon Vercel integration can also inject `POSTGRES_URL` and `PG*` variables. This project supports those too, but `DB_CONNECTION=pgsql` is still the important Laravel switch.
+Set these variables in Vercel:
 
-### MySQL on Vercel
+```env
+BLOB_READ_WRITE_TOKEN=your-vercel-blob-token
+BLOB_UPLOAD_SECRET=make-this-a-long-random-secret
+PROJECT_DIRECT_UPLOAD_DRIVER=vercel_blob
+PROJECT_BLOB_HANDLE_URL=/blob/project-upload
+PROJECT_BLOB_ACCESS=public
+PROJECT_UPLOAD_MAX_BYTES=104857600
+PDF_REMOTE_EXTRACT_MAX_BYTES=31457280
+```
 
-If you prefer to keep MySQL, use an external MySQL-compatible database such as PlanetScale, Aiven, Railway, or a managed MySQL service. If the provider gives one connection string, set:
+The route `/blob/project-upload` is handled by `api/blob-project-upload.js`. Laravel creates a signed upload intent for the form; the Node function verifies it before allowing the browser to upload to Blob.
+
+Notes:
+
+- Direct upload avoids PHP `post_max_size` and serverless request body limits.
+- The database never stores the full PDF binary.
+- `PROJECT_UPLOAD_MAX_BYTES=104857600` allows 100 MB direct uploads.
+- `PDF_REMOTE_EXTRACT_MAX_BYTES=31457280` means Laravel only downloads PDFs up to 30 MB for immediate text extraction. Larger files can still be stored, but text extraction should be moved to a queue/background worker later.
+- `PROJECT_BLOB_ACCESS=public` makes Blob URLs public if someone has the URL. The app still hides those URLs from guests. For strict file privacy, switch to private Blob access and add signed download URLs later.
+
+For local development without Vercel Blob, leave `PROJECT_DIRECT_UPLOAD_DRIVER` empty and use the normal local upload flow.
+
+## MySQL on Vercel
+
+Use an external MySQL-compatible database such as Aiven, Railway, PlanetScale, or another managed MySQL service.
+
+If the provider gives a single connection string:
 
 ```env
 DB_CONNECTION=mysql
 DATABASE_URL=mysql://user:password@host:3306/database
 ```
 
-If it gives separate values, set:
+If it gives separate values:
 
 ```env
 DB_CONNECTION=mysql
@@ -102,28 +192,32 @@ DB_USERNAME=
 DB_PASSWORD=
 ```
 
-PlanetScale-style Vercel variables such as `PLANETSCALE_DB_HOST`, `PLANETSCALE_DB`, `PLANETSCALE_DB_USERNAME`, and `PLANETSCALE_DB_PASSWORD` are also supported by `config/database.php`.
+PlanetScale-style variables such as `PLANETSCALE_DB_HOST`, `PLANETSCALE_DB`, `PLANETSCALE_DB_USERNAME`, and `PLANETSCALE_DB_PASSWORD` are also supported in `config/database.php`.
 
-After setting production database variables, run migrations and the starter taxonomy seed against that database. The simplest path is to temporarily put the production database variables in your local `.env`, run:
+## PostgreSQL / Neon
 
-```bash
-php artisan migrate --force
-php artisan db:seed --force
+Neon can work, but it is PostgreSQL, not MySQL. Use:
+
+```env
+DB_CONNECTION=pgsql
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
 ```
-
-Then restore your local `.env` values.
-
-Local file uploads on Vercel are not persistent. For production PDFs, use external object storage and store only the file URL/path, file hash, and metadata in the database. The most Laravel-native path is S3-compatible storage such as Cloudflare R2, AWS S3, DigitalOcean Spaces, or Supabase Storage through Laravel's `s3` disk. Vercel Blob can also work, but the cleanest implementation is to upload from the browser or a small Vercel function to Blob, then save the returned Blob URL in Laravel.
 
 ## PDF Text Extraction
 
-The app tries to use the `pdftotext` command if it is installed. You can configure its path:
+The app attempts text extraction in this order:
+
+1. `pdftotext`, if installed.
+2. `smalot/pdfparser`, a PHP parser.
+3. A simple built-in fallback for basic PDFs.
+
+Configure `pdftotext` when available:
 
 ```env
 PDFTOTEXT_PATH=pdftotext
 ```
 
-If `pdftotext` is unavailable, the app falls back to a simple built-in extractor. That fallback is enough for some PDFs but not every compressed or scanned document.
+Scanned/image-only PDFs still need OCR. That is a future background-processing feature.
 
 ## API Auth
 
@@ -135,19 +229,22 @@ POST /api/auth/login
 POST /api/auth/logout
 ```
 
-Authenticated staff roles can create, update, and delete projects through `/api/projects`.
+Authenticated users can create projects. Users can update their own projects; staff can update broader project records through their role permissions.
 
 ## Tests
 
-This PHP install has MySQL support but not SQLite, so tests use database transactions against the configured testing database connection. Run migrations first, then:
+Run:
 
 ```bash
 php artisan test
+npm run build
 ```
+
+This PHP install uses MySQL for tests, so run migrations first against your testing database.
 
 ## Cache Reset After Moving The Project
 
-If the app was moved to a new folder and Laravel still points to old paths, clear generated caches:
+If Laravel still points to an old folder after moving the project:
 
 ```bash
 php artisan optimize:clear

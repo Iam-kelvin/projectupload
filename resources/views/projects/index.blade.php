@@ -9,9 +9,7 @@
             <h1>Browse projects</h1>
         </div>
         @auth
-            @if (auth()->user()->canAccessAdminPanel())
-                <a class="button" href="{{ route('admin.projects.create') }}">Upload project</a>
-            @endif
+            <a class="button" href="{{ route('projects.create') }}">Upload project</a>
         @endauth
     </div>
 
@@ -92,9 +90,11 @@
                 </div>
                 <div class="row-actions">
                     <a class="button button-small" href="{{ route('projects.show', $project) }}">View</a>
+                    @auth
                     @if ($project->pdfAbsolutePath())
                         <a class="button button-small button-secondary" href="{{ route('projects.download', $project) }}">Download</a>
                     @endif
+                    @endauth
                 </div>
             </article>
         @empty

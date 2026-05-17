@@ -8,6 +8,7 @@ use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -34,7 +35,75 @@ class ProjectLibraryTest extends TestCase
 
         $this->get(route('projects.show', $project))
             ->assertOk()
-            ->assertSee('A searchable archive for project documents.');
+            ->assertSee('latent vector indexing and semantic search')
+            ->assertSee('Log in to continue');
+    }
+
+    public function test_normal_users_can_upload_and_edit_only_their_own_projects(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create(['role' => User::ROLE_USER]);
+        $otherUser = User::factory()->create(['role' => User::ROLE_USER]);
+        $category = Category::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->post(route('projects.store'), array_merge($this->projectPayload($category), [
+                'pdf_file' => UploadedFile::fake()->createWithContent('reader.pdf', '%PDF-1.4 reader upload'),
+            ]));
+
+        $project = Project::where('title', 'Reliable Project Repository')->firstOrFail();
+
+        $response->assertRedirect(route('projects.show', $project));
+        $this->assertSame($user->id, $project->uploaded_by);
+
+        $this->actingAs($user)
+            ->get(route('projects.edit', $project))
+            ->assertOk()
+            ->assertSee('Edit project');
+
+        $this->actingAs($otherUser)
+            ->get(route('projects.edit', $project))
+            ->assertForbidden();
+    }
+
+    public function test_signed_in_users_can_save_and_track_viewed_projects(): void
+    {
+        $user = User::factory()->create(['role' => User::ROLE_USER]);
+        $project = Project::factory()->create(['title' => 'Saved Reading Target']);
+
+        $this->actingAs($user)
+            ->get(route('projects.show', $project))
+            ->assertOk();
+
+        $this->assertDatabaseHas('project_views', [
+            'user_id' => $user->id,
+            'project_id' => $project->id,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('projects.save', $project))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('project_saves', [
+            'user_id' => $user->id,
+            'project_id' => $project->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Saved Reading Target')
+            ->assertSee('Recently viewed');
+
+        $this->actingAs($user)
+            ->delete(route('projects.unsave', $project))
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('project_saves', [
+            'user_id' => $user->id,
+            'project_id' => $project->id,
+        ]);
     }
 
     public function test_staff_can_upload_and_duplicate_pdfs_are_rejected(): void
@@ -166,10 +235,39 @@ class ProjectLibraryTest extends TestCase
             ->assertSee('Research desk');
     }
 
+    public function test_login_and_registration_can_return_to_the_project_being_read(): void
+    {
+        $project = Project::factory()->create();
+        $projectUrl = route('projects.show', $project);
+        $user = User::factory()->create([
+            'email' => 'return-reader@example.com',
+            'role' => User::ROLE_USER,
+        ]);
+
+        $this->get(route('login', ['redirect' => $projectUrl]))->assertOk();
+
+        $this->post(route('login'), [
+            'email' => 'return-reader@example.com',
+            'password' => 'password',
+            'redirect' => $projectUrl,
+        ])->assertRedirect($projectUrl);
+
+        auth()->logout();
+
+        $this->post(route('register'), [
+            'name' => 'Return Reader',
+            'email' => 'return-register@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'redirect' => $projectUrl,
+        ])->assertRedirect($projectUrl);
+    }
+
     public function test_pdf_preview_and_download_routes_stream_files(): void
     {
         Storage::fake('local');
         Storage::disk('local')->put('projects/test.pdf', '%PDF-1.4 fake document');
+        $user = User::factory()->create(['role' => User::ROLE_USER]);
 
         $project = Project::factory()->create([
             'pdf_file' => 'test.pdf',
@@ -177,8 +275,87 @@ class ProjectLibraryTest extends TestCase
             'pdf_original_name' => 'test.pdf',
         ]);
 
-        $this->get(route('projects.preview', $project))->assertOk();
-        $this->get(route('projects.download', $project))->assertOk();
+        $this->get(route('projects.preview', $project))->assertRedirect(route('login'));
+        $this->get(route('projects.download', $project))->assertRedirect(route('login'));
+
+        $this->actingAs($user)->get(route('projects.preview', $project))->assertOk();
+        $this->actingAs($user)->get(route('projects.download', $project))->assertOk();
+    }
+
+    public function test_uploads_can_auto_fill_missing_metadata_from_project_text(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create(['role' => User::ROLE_USER]);
+        Category::factory()->create([
+            'name' => 'Health & Life Sciences',
+            'slug' => 'health-life-sciences',
+        ]);
+        $tag = Tag::factory()->create([
+            'name' => 'Maternal Health',
+            'slug' => 'maternal-health',
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('projects.store'), [
+                'title' => 'Maternal Health Clinic Outreach',
+                'student_name' => 'Ada Okafor',
+                'supervisor' => null,
+                'project_type' => 'Research',
+                'category_id' => null,
+                'abstract' => null,
+                'keywords' => null,
+                'completion_year' => 2025,
+                'tags' => [],
+                'pdf_file' => UploadedFile::fake()->createWithContent('health.pdf', '%PDF-1.4 maternal health clinic outreach'),
+            ])
+            ->assertRedirect();
+
+        $project = Project::where('title', 'Maternal Health Clinic Outreach')->firstOrFail();
+
+        $this->assertNotNull($project->category_id);
+        $this->assertNotNull($project->abstract);
+        $this->assertTrue($project->tags()->whereKey($tag->id)->exists());
+    }
+
+    public function test_direct_cloud_upload_metadata_can_create_project_without_posting_pdf_body(): void
+    {
+        Http::fake([
+            'https://blob.example.test/*' => Http::response('%PDF-1.4 cloud maternal health introduction', 200),
+        ]);
+
+        $user = User::factory()->create(['role' => User::ROLE_USER]);
+        $category = Category::factory()->create([
+            'name' => 'Health & Life Sciences',
+            'slug' => 'health-life-sciences',
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('projects.store'), [
+                'title' => 'Cloud Upload Maternal Health',
+                'student_name' => 'Ada Okafor',
+                'supervisor' => null,
+                'project_type' => 'Research',
+                'category_id' => null,
+                'abstract' => null,
+                'keywords' => null,
+                'completion_year' => 2025,
+                'cloud_pdf_url' => 'https://blob.example.test/projects/cloud.pdf',
+                'cloud_pdf_download_url' => 'https://blob.example.test/projects/cloud.pdf',
+                'cloud_pdf_storage_key' => 'projects/cloud.pdf',
+                'cloud_pdf_original_name' => 'cloud.pdf',
+                'cloud_pdf_mime' => 'application/pdf',
+                'cloud_pdf_size' => 1024,
+                'cloud_file_hash' => str_repeat('a', 64),
+            ])
+            ->assertRedirect();
+
+        $project = Project::where('title', 'Cloud Upload Maternal Health')->firstOrFail();
+
+        $this->assertSame('vercel_blob', $project->pdf_storage_disk);
+        $this->assertSame('https://blob.example.test/projects/cloud.pdf', $project->pdf_url);
+        $this->assertNotNull($project->category_id);
+        $this->assertTrue($project->hasPdf());
     }
 
     public function test_api_exposes_projects_and_stats(): void

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
+use Smalot\PdfParser\Parser;
 
 class PdfTextExtractor
 {
@@ -15,6 +16,10 @@ class PdfTextExtractor
         }
 
         $text = $this->extractWithPdftotext($path);
+
+        if ($text === '') {
+            $text = $this->extractWithPdfParser($path);
+        }
 
         if ($text === '') {
             $text = $this->extractFallback($path);
@@ -40,6 +45,19 @@ class PdfTextExtractor
         $text = shell_exec($extractCommand);
 
         return is_string($text) ? $text : '';
+    }
+
+    private function extractWithPdfParser(string $path): string
+    {
+        if (! class_exists(Parser::class)) {
+            return '';
+        }
+
+        try {
+            return (new Parser())->parseFile($path)->getText();
+        } catch (\Throwable) {
+            return '';
+        }
     }
 
     private function extractFallback(string $path): string
@@ -86,6 +104,7 @@ class PdfTextExtractor
 
     private function clean(string $text): string
     {
+        $text = preg_replace('/(?<=[a-z0-9])(?=[A-Z])/u', ' ', $text) ?? $text;
         $text = preg_replace('/[^\P{C}\t\r\n]+/u', ' ', $text) ?? $text;
         $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
 

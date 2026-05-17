@@ -3,6 +3,15 @@
 @section('title', $project->title)
 
 @section('content')
+    @php
+        $user = auth()->user();
+        $canReadFullProject = auth()->check();
+        $canEditProject = $project->canBeEditedBy($user);
+        $hasPdf = $project->hasPdf();
+        $textPreview = $project->pdfTextPreview($canReadFullProject ? 1800 : 520);
+        $returnToProject = ['redirect' => url()->current()];
+    @endphp
+
     <div class="detail-layout">
         <article class="detail-main">
             <p class="eyebrow">{{ $project->category?->name ?? 'Uncategorized' }}</p>
@@ -27,14 +36,25 @@
                 </div>
             </dl>
 
-            @if ($project->abstract)
+            @if ($project->abstract && $canReadFullProject)
                 <section>
                     <h2>Abstract</h2>
                     <p class="body-copy">{{ $project->abstract }}</p>
                 </section>
+            @elseif (! $canReadFullProject && $textPreview)
+                <section class="locked-panel">
+                    <p class="eyebrow">Preview</p>
+                    <p class="body-copy">{{ $textPreview }}</p>
+                    @guest
+                        <div class="hero-actions">
+                            <a class="button" href="{{ route('login', $returnToProject) }}">Log in to continue</a>
+                            <a class="button button-secondary" href="{{ route('register', $returnToProject) }}">Create account</a>
+                        </div>
+                    @endguest
+                </section>
             @endif
 
-            @if ($project->keywords)
+            @if ($project->keywords && $canReadFullProject)
                 <section>
                     <h2>Keywords</h2>
                     <p>{{ $project->keywords }}</p>
@@ -51,24 +71,58 @@
         </article>
 
         <aside class="detail-side">
-            @if ($project->pdfAbsolutePath())
-                <a class="button" href="{{ route('projects.download', $project) }}">Download PDF</a>
-            @endif
             @auth
-                @if (auth()->user()->canAccessAdminPanel())
-                    <a class="button button-secondary" href="{{ route('admin.projects.edit', $project) }}">Edit project</a>
+                @if ($hasPdf)
+                <a class="button" href="{{ route('projects.download', $project) }}">Download PDF</a>
                 @endif
+                @if ($saved)
+                    <form action="{{ route('projects.unsave', $project) }}" method="POST">
+                        @csrf
+                        @method('DELETE')
+                        <button class="button button-ghost" type="submit">Remove saved</button>
+                    </form>
+                @else
+                    <form action="{{ route('projects.save', $project) }}" method="POST">
+                        @csrf
+                        <button class="button button-secondary" type="submit">Save for later</button>
+                    </form>
+                @endif
+                @if ($canEditProject)
+                    <a class="button button-secondary" href="{{ route('projects.edit', $project) }}">Edit project</a>
+                @endif
+            @else
+                <a class="button" href="{{ route('login', $returnToProject) }}">Log in to download</a>
+                <a class="button button-secondary" href="{{ route('register', $returnToProject) }}">Create account</a>
             @endauth
         </aside>
     </div>
 
-    @if ($project->pdfAbsolutePath())
-        <section class="pdf-panel">
-            <div class="section-heading">
-                <h2>PDF preview</h2>
-                <a href="{{ route('projects.preview', $project) }}" target="_blank" rel="noopener">Open in new tab</a>
+    <section class="pdf-panel">
+        <div class="section-heading">
+            <h2>PDF text preview</h2>
+            @auth
+                @if ($hasPdf)
+                    <a href="{{ route('projects.preview', $project) }}" target="_blank" rel="noopener">Open PDF in new tab</a>
+                @endif
+            @else
+                <a href="{{ route('login', $returnToProject) }}">Log in to open PDF</a>
+            @endauth
+        </div>
+
+        @if ($textPreview)
+            <div class="pdf-text-preview">
+                <p class="body-copy">{{ $textPreview }}</p>
+                @guest
+                    <div class="hero-actions">
+                        <a class="button" href="{{ route('login', $returnToProject) }}">Log in to continue reading</a>
+                        <a class="button button-secondary" href="{{ route('register', $returnToProject) }}">Create account</a>
+                    </div>
+                @endguest
             </div>
-            <iframe title="PDF preview for {{ $project->title }}" src="{{ route('projects.preview', $project) }}"></iframe>
-        </section>
-    @endif
+        @else
+            <div class="empty-state">
+                No readable text preview is available yet. The PDF may be scanned, image-based, or waiting for text extraction.
+            </div>
+        @endif
+    </section>
 @endsection

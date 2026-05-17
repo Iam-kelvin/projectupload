@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class Project extends Model
 {
@@ -22,6 +23,10 @@ class Project extends Model
         'completion_year',
         'pdf_file',
         'pdf_path',
+        'pdf_storage_disk',
+        'pdf_storage_key',
+        'pdf_url',
+        'pdf_download_url',
         'pdf_original_name',
         'pdf_mime',
         'pdf_size',
@@ -43,6 +48,53 @@ class Project extends Model
     public function uploader()
     {
         return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function viewers()
+    {
+        return $this->belongsToMany(User::class, 'project_views')->withTimestamps();
+    }
+
+    public function savers()
+    {
+        return $this->belongsToMany(User::class, 'project_saves')->withTimestamps();
+    }
+
+    public function canBeEditedBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $user->canAccessAdminPanel() || ((int) $this->uploaded_by === (int) $user->id);
+    }
+
+    public function guestSnippet(int $limit = 260): string
+    {
+        return $this->pdfTextPreview($limit) ?: 'No text preview is available for this project yet.';
+    }
+
+    public function pdfTextPreview(int $limit = 1200): string
+    {
+        $source = $this->pdf_text ?: $this->abstract ?: $this->keywords;
+
+        if (! $source) {
+            return '';
+        }
+
+        $source = Str::of($source)->squish()->toString();
+        $lowerSource = Str::lower($source);
+
+        foreach (['introduction', 'background', 'abstract', 'overview'] as $heading) {
+            $position = mb_stripos($lowerSource, $heading);
+
+            if ($position !== false) {
+                $source = mb_substr($source, $position);
+                break;
+            }
+        }
+
+        return Str::of($source)->squish()->limit($limit)->toString();
     }
 
     public function scopeFiltered($query, array $filters)
@@ -150,6 +202,10 @@ class Project extends Model
 
     public function pdfAbsolutePath(): ?string
     {
+        if ($this->pdf_url) {
+            return null;
+        }
+
         if ($this->pdf_path && Storage::disk('local')->exists($this->pdf_path)) {
             return Storage::disk('local')->path($this->pdf_path);
         }
@@ -163,6 +219,16 @@ class Project extends Model
         }
 
         return null;
+    }
+
+    public function pdfSourceUrl(): ?string
+    {
+        return $this->pdf_download_url ?: $this->pdf_url;
+    }
+
+    public function hasPdf(): bool
+    {
+        return (bool) ($this->pdfSourceUrl() || $this->pdfAbsolutePath());
     }
 
     public function pdfDisplayName(): string

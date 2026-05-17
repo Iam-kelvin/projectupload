@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreProjectRequest;
 use App\Http\Requests\UpdateProjectRequest;
 use App\Models\Category;
@@ -12,33 +11,12 @@ use App\Services\CloudUploadIntent;
 use App\Services\ProjectFileManager;
 use App\Services\ProjectMetadataSuggester;
 use App\Services\ProjectTagResolver;
-use Illuminate\Http\Request;
 
-class ProjectController extends Controller
+class UserProjectController extends Controller
 {
-    public function index(Request $request)
-    {
-        $projects = Project::query()
-            ->with(['category', 'tags', 'uploader'])
-            ->filtered($request->query())
-            ->sorted($request->query('sort'))
-            ->paginate(15)
-            ->withQueryString();
-
-        $categories = Category::query()->orderBy('name')->get();
-        $tags = Tag::query()->orderBy('name')->get();
-        $projectTypes = Project::query()
-            ->whereNotNull('project_type')
-            ->distinct()
-            ->orderBy('project_type')
-            ->pluck('project_type');
-
-        return view('admin.projects.index', compact('projects', 'categories', 'tags', 'projectTypes'));
-    }
-
     public function create()
     {
-        return view('admin.projects.create', $this->formData());
+        return view('projects.create', $this->formData());
     }
 
     public function store(StoreProjectRequest $request, ProjectFileManager $files, ProjectTagResolver $tags, ProjectMetadataSuggester $metadata)
@@ -46,6 +24,7 @@ class ProjectController extends Controller
         $validated = $request->validated();
         $tagIds = $tags->resolve($validated['tags'] ?? [], $validated['new_tags'] ?? null);
         unset($validated['tags'], $validated['new_tags']);
+
         $fileData = filled($validated['cloud_pdf_url'] ?? null)
             ? $files->storeCloudUpload($validated)
             : $files->store($request->file('pdf_file'));
@@ -61,14 +40,16 @@ class ProjectController extends Controller
 
         $project->tags()->sync(collect($tagIds)->merge($suggestions['tag_ids'])->unique()->values()->all());
 
-        return redirect()->route('admin.projects.edit', $project)->with('success', 'Project uploaded successfully.');
+        return redirect()->route('projects.show', $project)->with('success', 'Project uploaded successfully.');
     }
 
     public function edit(Project $project)
     {
+        abort_unless($project->canBeEditedBy(request()->user()), 403);
+
         $project->load('tags');
 
-        return view('admin.projects.edit', array_merge($this->formData(), compact('project')));
+        return view('projects.edit', array_merge($this->formData(), compact('project')));
     }
 
     public function update(UpdateProjectRequest $request, Project $project, ProjectFileManager $files, ProjectTagResolver $tags, ProjectMetadataSuggester $metadata)
@@ -93,21 +74,11 @@ class ProjectController extends Controller
         }
 
         $suggestions = $metadata->suggest($payload, $pdfText, $tagIds);
-        $payload = array_merge($payload, $suggestions['payload']);
 
-        $project->update($payload);
+        $project->update(array_merge($payload, $suggestions['payload']));
         $project->tags()->sync(collect($tagIds)->merge($suggestions['tag_ids'])->unique()->values()->all());
 
-        return redirect()->route('admin.projects.edit', $project)->with('success', 'Project updated successfully.');
-    }
-
-    public function destroy(Request $request, Project $project)
-    {
-        abort_unless($request->user()->canDeleteProjects(), 403);
-
-        $project->delete();
-
-        return redirect()->route('admin.projects.index')->with('success', 'Project deleted.');
+        return redirect()->route('projects.show', $project)->with('success', 'Project updated successfully.');
     }
 
     private function formData(): array

@@ -38,15 +38,26 @@ class ProjectController extends Controller
         return view('projects.index', compact('projects', 'categories', 'tags', 'projectTypes'));
     }
 
-    public function show(Project $project)
+    public function show(Request $request, Project $project)
     {
         $project->load(['category', 'tags', 'uploader']);
+        $saved = false;
 
-        return view('projects.show', compact('project'));
+        if ($request->user()) {
+            $request->user()->viewedProjects()->syncWithoutDetaching([$project->id]);
+            $request->user()->viewedProjects()->updateExistingPivot($project->id, ['updated_at' => now()]);
+            $saved = $request->user()->savedProjects()->whereKey($project->id)->exists();
+        }
+
+        return view('projects.show', compact('project', 'saved'));
     }
 
     public function preview(Project $project)
     {
+        if ($project->pdfSourceUrl()) {
+            return redirect()->away($project->pdfSourceUrl());
+        }
+
         $path = $project->pdfAbsolutePath();
 
         abort_if(! $path, 404);
@@ -59,6 +70,10 @@ class ProjectController extends Controller
 
     public function download(Project $project)
     {
+        if ($project->pdfSourceUrl()) {
+            return redirect()->away($project->pdfSourceUrl());
+        }
+
         $path = $project->pdfAbsolutePath();
 
         abort_if(! $path, 404);

@@ -17,7 +17,7 @@ Route::get('/categories', [ProjectController::class, 'categories']);
 Route::get('/tags', [ProjectController::class, 'tags']);
 Route::get('/stats', StatsController::class);
 
-Route::middleware(['auth:sanctum', 'role:super_admin,admin,moderator'])->group(function () {
+Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects', [ProjectController::class, 'store']);
     Route::match(['put', 'patch'], '/projects/{project}', [ProjectController::class, 'update']);
     Route::delete('/projects/{project}', [ProjectController::class, 'destroy']);

@@ -75,6 +75,20 @@ class User extends Authenticatable
         return $this->hasMany(Project::class, 'uploaded_by');
     }
 
+    public function viewedProjects()
+    {
+        return $this->belongsToMany(Project::class, 'project_views')
+            ->withTimestamps()
+            ->orderByPivot('updated_at', 'desc');
+    }
+
+    public function savedProjects()
+    {
+        return $this->belongsToMany(Project::class, 'project_saves')
+            ->withTimestamps()
+            ->orderByPivot('created_at', 'desc');
+    }
+
     public function preferredCategoryIds(): array
     {
         return collect($this->preferred_categories ?? [])

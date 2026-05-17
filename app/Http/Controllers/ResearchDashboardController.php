@@ -21,6 +21,19 @@ class ResearchDashboardController extends Controller
             ->latest()
             ->limit(6)
             ->get();
+        $savedProjects = $user->savedProjects()
+            ->with(['category', 'tags'])
+            ->limit(5)
+            ->get();
+        $viewedProjects = $user->viewedProjects()
+            ->with(['category', 'tags'])
+            ->limit(5)
+            ->get();
+        $uploadedProjects = $user->projects()
+            ->with(['category', 'tags'])
+            ->latest()
+            ->limit(5)
+            ->get();
 
         $categories = Category::query()
             ->withCount('projects')
@@ -52,7 +65,10 @@ class ResearchDashboardController extends Controller
             'popularTags',
             'preferredCategories',
             'recommendedProjects',
+            'savedProjects',
             'stats',
+            'uploadedProjects',
+            'viewedProjects',
             'user'
         ));
     }

@@ -410,11 +410,15 @@ button.button {
 }
 
 .filter-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-column: span 2;
     align-self: end;
 }
 
 .filter-actions .button {
-    min-width: 6.8rem;
+    width: 100%;
+    min-width: 0;
 }
 
 .results-bar {
@@ -436,6 +440,14 @@ button.button {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 1rem;
     align-items: center;
+}
+
+.row-actions {
+    justify-content: flex-end;
+}
+
+.row-actions form {
+    margin: 0;
 }
 
 .compact-row {
@@ -472,6 +484,12 @@ button.button {
     gap: 0.7rem;
 }
 
+.detail-side .button,
+.detail-side form,
+.detail-side form button {
+    width: 100%;
+}
+
 .metadata-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -500,11 +518,32 @@ button.button {
     white-space: pre-line;
 }
 
+.locked-panel {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 1rem;
+}
+
 .pdf-panel {
     margin-top: 1.5rem;
 }
 
-.pdf-panel iframe {
+.pdf-text-preview {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 1rem;
+}
+
+.pdf-text-preview p {
+    max-width: 78rem;
+    margin-top: 0;
+}
+
+.pdf-panel iframe,
+.pdf-frame {
+    display: block;
     width: 100%;
     min-height: 72vh;
     border: 1px solid var(--line);
@@ -664,6 +703,14 @@ button.button {
     border-radius: var(--radius);
     background: var(--surface);
     padding: 1rem;
+    color: var(--muted);
+}
+
+.upload-status {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface-strong);
+    padding: 0.85rem 1rem;
     color: var(--muted);
 }
 
@@ -847,6 +894,11 @@ button.button {
     .form-actions .button,
     .auth-panel .button {
         width: 100%;
+    }
+
+    .filter-actions {
+        grid-column: 1 / -1;
+        grid-template-columns: 1fr;
     }
 
     .hero-actions {

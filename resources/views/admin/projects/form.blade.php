@@ -1,3 +1,7 @@
+@php
+    $cloudUpload = $cloudUpload ?? null;
+@endphp
+
 <label>Title
     <input type="text" name="title" value="{{ old('title', $project?->title) }}" required>
 </label>
@@ -44,7 +48,7 @@
         </label>
     @endforeach
     @if ($tags->isEmpty())
-        <p class="muted">Create tags from the Tags section to attach them here.</p>
+        <p class="muted">Add new tags below to attach them here.</p>
     @endif
 </fieldset>
 
@@ -54,8 +58,37 @@
 </label>
 
 <label class="full-span">PDF file
-    <input type="file" name="pdf_file" accept="application/pdf,.pdf" @required(! $project)>
-    @if ($project?->pdfAbsolutePath())
+    <input
+        type="file"
+        name="pdf_file"
+        accept="application/pdf,.pdf"
+        @required(! $project && ! old('cloud_pdf_url'))
+        @if ($cloudUpload)
+            data-direct-file
+        @endif
+    >
+    @if ($project?->hasPdf())
         <span class="help-text">Current file: {{ $project->pdfDisplayName() }}</span>
+    @else
+        <span class="help-text">PDFs up to 50 MB are accepted here. The app stores the file path and extracted text, not the full PDF inside the database.</span>
     @endif
 </label>
+
+@if ($cloudUpload)
+    <div
+        class="full-span upload-status"
+        data-direct-upload
+        data-handle-url="{{ $cloudUpload['handleUrl'] }}"
+        data-access="{{ $cloudUpload['access'] }}"
+        data-client-payload="{{ $cloudUpload['intent'] }}"
+        data-max-bytes="{{ $cloudUpload['maxBytes'] }}"
+        hidden
+    ></div>
+    <input type="hidden" name="cloud_pdf_url" data-cloud-field="url" value="{{ old('cloud_pdf_url') }}">
+    <input type="hidden" name="cloud_pdf_download_url" data-cloud-field="downloadUrl" value="{{ old('cloud_pdf_download_url') }}">
+    <input type="hidden" name="cloud_pdf_storage_key" data-cloud-field="pathname" value="{{ old('cloud_pdf_storage_key') }}">
+    <input type="hidden" name="cloud_pdf_original_name" data-cloud-field="originalName" value="{{ old('cloud_pdf_original_name') }}">
+    <input type="hidden" name="cloud_pdf_mime" data-cloud-field="mime" value="{{ old('cloud_pdf_mime') }}">
+    <input type="hidden" name="cloud_pdf_size" data-cloud-field="size" value="{{ old('cloud_pdf_size') }}">
+    <input type="hidden" name="cloud_file_hash" data-cloud-field="hash" value="{{ old('cloud_file_hash') }}">
+@endif

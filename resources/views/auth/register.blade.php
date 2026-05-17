@@ -9,6 +9,9 @@
 
         <form method="POST" action="{{ route('register') }}" class="form-stack">
             @csrf
+            @if (request('redirect'))
+                <input type="hidden" name="redirect" value="{{ request('redirect') }}">
+            @endif
             <label>Name
                 <input type="text" name="name" value="{{ old('name') }}" required autofocus>
             </label>
