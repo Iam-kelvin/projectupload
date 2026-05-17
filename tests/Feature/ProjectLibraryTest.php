@@ -8,7 +8,6 @@ use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -316,46 +315,6 @@ class ProjectLibraryTest extends TestCase
         $this->assertNotNull($project->category_id);
         $this->assertNotNull($project->abstract);
         $this->assertTrue($project->tags()->whereKey($tag->id)->exists());
-    }
-
-    public function test_direct_cloud_upload_metadata_can_create_project_without_posting_pdf_body(): void
-    {
-        Http::fake([
-            'https://blob.example.test/*' => Http::response('%PDF-1.4 cloud maternal health introduction', 200),
-        ]);
-
-        $user = User::factory()->create(['role' => User::ROLE_USER]);
-        $category = Category::factory()->create([
-            'name' => 'Health & Life Sciences',
-            'slug' => 'health-life-sciences',
-        ]);
-
-        $this->actingAs($user)
-            ->post(route('projects.store'), [
-                'title' => 'Cloud Upload Maternal Health',
-                'student_name' => 'Ada Okafor',
-                'supervisor' => null,
-                'project_type' => 'Research',
-                'category_id' => null,
-                'abstract' => null,
-                'keywords' => null,
-                'completion_year' => 2025,
-                'cloud_pdf_url' => 'https://blob.example.test/projects/cloud.pdf',
-                'cloud_pdf_download_url' => 'https://blob.example.test/projects/cloud.pdf',
-                'cloud_pdf_storage_key' => 'projects/cloud.pdf',
-                'cloud_pdf_original_name' => 'cloud.pdf',
-                'cloud_pdf_mime' => 'application/pdf',
-                'cloud_pdf_size' => 1024,
-                'cloud_file_hash' => str_repeat('a', 64),
-            ])
-            ->assertRedirect();
-
-        $project = Project::where('title', 'Cloud Upload Maternal Health')->firstOrFail();
-
-        $this->assertSame('vercel_blob', $project->pdf_storage_disk);
-        $this->assertSame('https://blob.example.test/projects/cloud.pdf', $project->pdf_url);
-        $this->assertNotNull($project->category_id);
-        $this->assertTrue($project->hasPdf());
     }
 
     public function test_api_exposes_projects_and_stats(): void

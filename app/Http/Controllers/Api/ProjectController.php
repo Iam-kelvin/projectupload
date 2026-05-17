@@ -41,9 +41,7 @@ class ProjectController extends Controller
         $validated = $request->validated();
         $tagIds = $tags->resolve($validated['tags'] ?? [], $validated['new_tags'] ?? null);
         unset($validated['tags'], $validated['new_tags']);
-        $fileData = filled($validated['cloud_pdf_url'] ?? null)
-            ? $files->storeCloudUpload($validated)
-            : $files->store($request->file('pdf_file'));
+        $fileData = $files->store($request->file('pdf_file'));
         $payload = $this->projectPayloadFromRequest($validated);
         $suggestions = $metadata->suggest($payload, $fileData['pdf_text'] ?? '', $tagIds);
 
@@ -67,12 +65,7 @@ class ProjectController extends Controller
         $payload = $this->projectPayloadFromRequest($validated);
         $pdfText = $project->pdf_text;
 
-        if (filled($validated['cloud_pdf_url'] ?? null)) {
-            $files->delete($project);
-            $fileData = $files->storeCloudUpload($validated, $project);
-            $payload = array_merge($payload, $fileData);
-            $pdfText = $fileData['pdf_text'] ?? '';
-        } elseif ($request->hasFile('pdf_file')) {
+        if ($request->hasFile('pdf_file')) {
             $files->delete($project);
             $fileData = $files->store($request->file('pdf_file'), $project);
             $payload = array_merge($payload, $fileData);

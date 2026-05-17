@@ -15,7 +15,6 @@ class UpdateProjectRequest extends StoreProjectRequest
     {
         $rules = parent::rules();
         $rules['pdf_file'] = ['nullable', 'file', 'mimes:pdf', 'max:51200'];
-        $rules['cloud_pdf_url'] = ['nullable', 'url', 'max:2048'];
 
         return $rules;
     }

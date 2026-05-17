@@ -7,7 +7,6 @@ use App\Http\Requests\UpdateProjectRequest;
 use App\Models\Category;
 use App\Models\Project;
 use App\Models\Tag;
-use App\Services\CloudUploadIntent;
 use App\Services\ProjectFileManager;
 use App\Services\ProjectMetadataSuggester;
 use App\Services\ProjectTagResolver;
@@ -25,9 +24,7 @@ class UserProjectController extends Controller
         $tagIds = $tags->resolve($validated['tags'] ?? [], $validated['new_tags'] ?? null);
         unset($validated['tags'], $validated['new_tags']);
 
-        $fileData = filled($validated['cloud_pdf_url'] ?? null)
-            ? $files->storeCloudUpload($validated)
-            : $files->store($request->file('pdf_file'));
+        $fileData = $files->store($request->file('pdf_file'));
         $payload = $this->projectPayload($validated);
         $suggestions = $metadata->suggest($payload, $fileData['pdf_text'] ?? '', $tagIds);
 
@@ -61,12 +58,7 @@ class UserProjectController extends Controller
         $payload = $this->projectPayload($validated);
         $pdfText = $project->pdf_text;
 
-        if (filled($validated['cloud_pdf_url'] ?? null)) {
-            $files->delete($project);
-            $fileData = $files->storeCloudUpload($validated, $project);
-            $payload = array_merge($payload, $fileData);
-            $pdfText = $fileData['pdf_text'] ?? '';
-        } elseif ($request->hasFile('pdf_file')) {
+        if ($request->hasFile('pdf_file')) {
             $files->delete($project);
             $fileData = $files->store($request->file('pdf_file'), $project);
             $payload = array_merge($payload, $fileData);
@@ -85,7 +77,6 @@ class UserProjectController extends Controller
     {
         return [
             'categories' => Category::query()->orderBy('name')->get(),
-            'cloudUpload' => app(CloudUploadIntent::class)->formConfig(request()->user()),
             'tags' => Tag::query()->orderBy('name')->get(),
         ];
     }

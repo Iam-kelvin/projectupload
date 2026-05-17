@@ -18,7 +18,6 @@ A Laravel 10 project repository for uploading, organizing, searching, previewing
   - `user`: upload, browse, save, and edit only their own projects.
 - Dashboard sections for recommendations, latest uploads, user uploads, saved projects, viewed projects, and active fields/tags.
 - JSON API for auth, projects, categories, tags, and stats.
-- Optional direct-to-Vercel-Blob upload so large PDFs bypass Laravel request body limits.
 
 ## Local Setup
 
@@ -129,46 +128,6 @@ APP_STORAGE_PATH=/tmp/laravel_storage
 `APP_STORAGE_PATH=/tmp/laravel_storage` is intentional on Vercel. Laravel needs writable temporary storage for views/cache/logs, but `/tmp` is not permanent file storage.
 
 Do not commit production secrets in `.env`, `.env.aiven`, or `vercel.json`. Add secrets in Vercel Dashboard -> Project -> Settings -> Environment Variables.
-
-## Vercel Blob Direct Upload
-
-Direct upload is the recommended production flow for large PDFs on Vercel:
-
-1. The browser uploads the PDF straight to Vercel Blob.
-2. Laravel receives only the Blob URL, file key, size, MIME type, client hash, and metadata.
-3. Laravel saves those values in MySQL and does best-effort text extraction from the Blob URL.
-
-Install dependencies:
-
-```bash
-npm install
-composer install
-npm run build
-```
-
-Set these variables in Vercel:
-
-```env
-BLOB_READ_WRITE_TOKEN=your-vercel-blob-token
-BLOB_UPLOAD_SECRET=make-this-a-long-random-secret
-PROJECT_DIRECT_UPLOAD_DRIVER=vercel_blob
-PROJECT_BLOB_HANDLE_URL=/blob/project-upload
-PROJECT_BLOB_ACCESS=public
-PROJECT_UPLOAD_MAX_BYTES=104857600
-PDF_REMOTE_EXTRACT_MAX_BYTES=31457280
-```
-
-The route `/blob/project-upload` is handled by `api/blob-project-upload.js`. Laravel creates a signed upload intent for the form; the Node function verifies it before allowing the browser to upload to Blob.
-
-Notes:
-
-- Direct upload avoids PHP `post_max_size` and serverless request body limits.
-- The database never stores the full PDF binary.
-- `PROJECT_UPLOAD_MAX_BYTES=104857600` allows 100 MB direct uploads.
-- `PDF_REMOTE_EXTRACT_MAX_BYTES=31457280` means Laravel only downloads PDFs up to 30 MB for immediate text extraction. Larger files can still be stored, but text extraction should be moved to a queue/background worker later.
-- `PROJECT_BLOB_ACCESS=public` makes Blob URLs public if someone has the URL. The app still hides those URLs from guests. For strict file privacy, switch to private Blob access and add signed download URLs later.
-
-For local development without Vercel Blob, leave `PROJECT_DIRECT_UPLOAD_DRIVER` empty and use the normal local upload flow.
 
 ## MySQL on Vercel
 

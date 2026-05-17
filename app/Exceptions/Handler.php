@@ -30,7 +30,7 @@ class Handler extends ExceptionHandler
         });
 
         $this->renderable(function (PostTooLargeException $e, Request $request) {
-            $message = 'That PDF is larger than the server currently accepts. Try a smaller PDF or use a direct cloud upload flow for very large files.';
+            $message = 'That PDF is larger than the server currently accepts. Try a PDF up to 50 MB.';
 
             if ($request->expectsJson()) {
                 return response()->json(['message' => $message], 413);

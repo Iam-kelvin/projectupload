@@ -32,14 +32,5 @@ return [
     ],
 
     'pdftotext_path' => env('PDFTOTEXT_PATH', 'pdftotext'),
-    'pdf_remote_extract_max_bytes' => (int) env('PDF_REMOTE_EXTRACT_MAX_BYTES', 31457280),
-
-    'project_uploads' => [
-        'direct_driver' => env('PROJECT_DIRECT_UPLOAD_DRIVER'),
-        'blob_handle_url' => env('PROJECT_BLOB_HANDLE_URL', '/blob/project-upload'),
-        'blob_access' => env('PROJECT_BLOB_ACCESS', 'public'),
-        'max_bytes' => (int) env('PROJECT_UPLOAD_MAX_BYTES', 104857600),
-        'secret' => env('BLOB_UPLOAD_SECRET', env('APP_KEY')),
-    ],
 
 ];
