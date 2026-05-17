@@ -74,7 +74,7 @@ class Project extends Model
         return $this->pdfTextPreview($limit) ?: 'No text preview is available for this project yet.';
     }
 
-    public function pdfTextPreview(int $limit = 1200): string
+    public function pdfTextPreview(int $limit = 1200, bool $preserveLayout = false): string
     {
         $source = $this->pdf_text ?: $this->abstract ?: $this->keywords;
 
@@ -82,10 +82,15 @@ class Project extends Model
             return '';
         }
 
-        $source = Str::of($source)->squish()->toString();
+        $source = $preserveLayout
+            ? $this->normalizePreviewLayout($source)
+            : Str::of($source)->squish()->toString();
         $lowerSource = Str::lower($source);
+        $preferredHeadings = $preserveLayout
+            ? ['table of contents', 'introduction', 'background', 'abstract', 'overview']
+            : ['introduction', 'background', 'abstract', 'overview'];
 
-        foreach (['introduction', 'background', 'abstract', 'overview'] as $heading) {
+        foreach ($preferredHeadings as $heading) {
             $position = mb_stripos($lowerSource, $heading);
 
             if ($position !== false) {
@@ -94,7 +99,56 @@ class Project extends Model
             }
         }
 
-        return Str::of($source)->squish()->limit($limit)->toString();
+        if (! $preserveLayout) {
+            return Str::of($source)->squish()->limit($limit)->toString();
+        }
+
+        $source = $this->restoreLikelyDocumentLines($source);
+
+        return $this->limitPreviewLayout($source, $limit);
+    }
+
+    private function normalizePreviewLayout(string $source): string
+    {
+        $source = str_replace(["\r\n", "\r"], "\n", $source);
+        $source = preg_replace('/[ \t]+$/m', '', $source) ?? $source;
+        $source = preg_replace("/\n{4,}/", "\n\n\n", $source) ?? $source;
+
+        return trim($source);
+    }
+
+    private function restoreLikelyDocumentLines(string $source): string
+    {
+        if (substr_count($source, "\n") >= 2) {
+            return $source;
+        }
+
+        $source = Str::of($source)->squish()->toString();
+        $source = preg_replace(
+            '/\s+(?=(CERTIFICATION|DEDICATION|ACKNOWLEDGEMENT|ABSTRACT|TABLE OF CONTENTS|LIST OF FIGURES|LIST OF TABLES|CHAPTER\s+[A-Z]+|INTRODUCTION|LITERATURE REVIEW)\b)/i',
+            "\n",
+            $source
+        ) ?? $source;
+        $source = preg_replace('/\s+(?=(?:\d+\.)+\d*\s+[A-Z][A-Za-z])/', "\n", $source) ?? $source;
+        $source = preg_replace("/\n{3,}/", "\n\n", $source) ?? $source;
+
+        return trim($source);
+    }
+
+    private function limitPreviewLayout(string $source, int $limit): string
+    {
+        if (mb_strlen($source) <= $limit) {
+            return $source;
+        }
+
+        $truncated = mb_substr($source, 0, $limit);
+        $lastBreak = mb_strrpos($truncated, "\n");
+
+        if ($lastBreak !== false && $lastBreak > (int) ($limit * 0.55)) {
+            $truncated = mb_substr($truncated, 0, $lastBreak);
+        }
+
+        return rtrim($truncated)."\n...";
     }
 
     public function scopeFiltered($query, array $filters)

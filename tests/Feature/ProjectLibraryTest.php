@@ -349,6 +349,19 @@ class ProjectLibraryTest extends TestCase
         $this->assertStringNotContainsString($invalidGlyphBytes, $project->pdf_text);
     }
 
+    public function test_pdf_text_preview_restores_document_like_lines(): void
+    {
+        $project = Project::factory()->make([
+            'pdf_text' => 'TABLE OF CONTENTS CERTIFICATION ........................................ ii DEDICATION ........................................ iii CHAPTER ONE ........................................ 1 INTRODUCTION ........................................ 1 1.1 Background of Study ........................................ 1 1.2 Aim and Objectives ........................................ 7 CHAPTER TWO ........................................ 10 LITERATURE REVIEW ........................................ 10 2.1 Epoxy Resin ........................................ 10',
+        ]);
+
+        $preview = $project->pdfTextPreview(1400, true);
+
+        $this->assertStringContainsString("TABLE OF CONTENTS\nCERTIFICATION", $preview);
+        $this->assertStringContainsString("\n1.1 Background of Study", $preview);
+        $this->assertStringContainsString("\nCHAPTER TWO", $preview);
+    }
+
     public function test_api_exposes_projects_and_stats(): void
     {
         Project::factory()->create([

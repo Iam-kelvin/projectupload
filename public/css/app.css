@@ -532,13 +532,26 @@ button.button {
 .pdf-text-preview {
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    background: var(--surface);
-    padding: 1rem;
+    background: #eef2f5;
+    padding: 1.25rem;
+    overflow-x: auto;
 }
 
-.pdf-text-preview p {
-    max-width: 78rem;
-    margin-top: 0;
+.pdf-page-preview {
+    width: min(820px, 100%);
+    min-height: 42rem;
+    margin: 0 auto;
+    border: 1px solid #cfd7df;
+    background: #fff;
+    color: #0a0f18;
+    box-shadow: 0 14px 36px rgba(21, 29, 40, 0.14);
+    padding: clamp(1.5rem, 4vw, 3rem);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(0.95rem, 1.35vw, 1.12rem);
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    tab-size: 4;
 }
 
 .pdf-panel iframe,
@@ -917,5 +930,14 @@ button.button {
 
     .checkbox-grid {
         grid-template-columns: 1fr;
+    }
+
+    .pdf-text-preview {
+        padding: 0.75rem;
+    }
+
+    .pdf-page-preview {
+        min-height: 28rem;
+        padding: 1rem;
     }
 }

@@ -105,10 +105,12 @@ class PdfTextExtractor
     private function clean(string $text): string
     {
         $text = $this->forceUtf8($text);
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
         $text = preg_replace('/(?<=[a-z0-9])(?=[A-Z])/u', ' ', $text) ?? $text;
         $text = preg_replace('/[^\P{C}\t\r\n]+/u', ' ', $text) ?? $text;
         $text = preg_replace('/\x{FFFD}+/u', ' ', $text) ?? $text;
-        $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
+        $text = preg_replace('/[ \t]+$/m', '', $text) ?? $text;
+        $text = preg_replace("/\n{4,}/", "\n\n\n", $text) ?? $text;
 
         return trim($text);
     }

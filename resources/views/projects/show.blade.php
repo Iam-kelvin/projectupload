@@ -8,7 +8,8 @@
         $canReadFullProject = auth()->check();
         $canEditProject = $project->canBeEditedBy($user);
         $hasPdf = $project->hasPdf();
-        $textPreview = $project->pdfTextPreview($canReadFullProject ? 1800 : 520);
+        $textPreview = $project->pdfTextPreview($canReadFullProject ? 2600 : 760, true);
+        $snippetPreview = $project->pdfTextPreview($canReadFullProject ? 1800 : 520);
         $returnToProject = ['redirect' => url()->current()];
     @endphp
 
@@ -41,10 +42,10 @@
                     <h2>Abstract</h2>
                     <p class="body-copy">{{ $project->abstract }}</p>
                 </section>
-            @elseif (! $canReadFullProject && $textPreview)
+            @elseif (! $canReadFullProject && $snippetPreview)
                 <section class="locked-panel">
                     <p class="eyebrow">Preview</p>
-                    <p class="body-copy">{{ $textPreview }}</p>
+                    <p class="body-copy">{{ $snippetPreview }}</p>
                     @guest
                         <div class="hero-actions">
                             <a class="button" href="{{ route('login', $returnToProject) }}">Log in to continue</a>
@@ -111,7 +112,7 @@
 
         @if ($textPreview)
             <div class="pdf-text-preview">
-                <p class="body-copy">{{ $textPreview }}</p>
+                <pre class="pdf-page-preview">{{ $textPreview }}</pre>
                 @guest
                     <div class="hero-actions">
                         <a class="button" href="{{ route('login', $returnToProject) }}">Log in to continue reading</a>
