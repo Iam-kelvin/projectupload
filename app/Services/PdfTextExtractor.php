@@ -104,11 +104,36 @@ class PdfTextExtractor
 
     private function clean(string $text): string
     {
+        $text = $this->forceUtf8($text);
         $text = preg_replace('/(?<=[a-z0-9])(?=[A-Z])/u', ' ', $text) ?? $text;
         $text = preg_replace('/[^\P{C}\t\r\n]+/u', ' ', $text) ?? $text;
+        $text = preg_replace('/\x{FFFD}+/u', ' ', $text) ?? $text;
         $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
 
         return trim($text);
+    }
+
+    private function forceUtf8(string $text): string
+    {
+        if ($text === '') {
+            return '';
+        }
+
+        // Some PDF extractors return UTF-8 encoded surrogate glyphs. They are not valid
+        // Unicode scalar values, and MySQL rejects them even on utf8mb4 columns.
+        $text = preg_replace('/\xED[\xA0-\xBF][\x80-\xBF]/', ' ', $text) ?? $text;
+
+        if (mb_check_encoding($text, 'UTF-8')) {
+            return $text;
+        }
+
+        $encoding = mb_detect_encoding($text, ['UTF-8', 'Windows-1252', 'ISO-8859-1'], true);
+
+        if ($encoding && $encoding !== 'UTF-8') {
+            return mb_convert_encoding($text, 'UTF-8', $encoding);
+        }
+
+        return mb_scrub($text, 'UTF-8');
     }
 
     private function isWindows(): bool

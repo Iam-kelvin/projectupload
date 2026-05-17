@@ -317,6 +317,38 @@ class ProjectLibraryTest extends TestCase
         $this->assertTrue($project->tags()->whereKey($tag->id)->exists());
     }
 
+    public function test_upload_sanitizes_invalid_pdf_text_before_storage(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create(['role' => User::ROLE_USER]);
+        $invalidGlyphBytes = "\xED\xA0\xB5\xED\xB0\xB6";
+
+        $this->actingAs($user)
+            ->post(route('projects.store'), [
+                'title' => 'Epoxy Resin Simulation',
+                'student_name' => 'Peace Gideon',
+                'supervisor' => 'Teddy',
+                'project_type' => 'Case Study',
+                'category_id' => null,
+                'abstract' => null,
+                'keywords' => null,
+                'completion_year' => 2024,
+                'tags' => [],
+                'pdf_file' => UploadedFile::fake()->createWithContent(
+                    'invalid-text.pdf',
+                    "%PDF-1.4\n(SIMULATION {$invalidGlyphBytes} PROCESS) Tj"
+                ),
+            ])
+            ->assertRedirect();
+
+        $project = Project::where('title', 'Epoxy Resin Simulation')->firstOrFail();
+
+        $this->assertTrue(mb_check_encoding($project->pdf_text, 'UTF-8'));
+        $this->assertStringContainsString('SIMULATION', $project->pdf_text);
+        $this->assertStringNotContainsString($invalidGlyphBytes, $project->pdf_text);
+    }
+
     public function test_api_exposes_projects_and_stats(): void
     {
         Project::factory()->create([
