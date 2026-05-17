@@ -5,7 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Project Library')</title>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
-    @vite(['resources/js/app.js'])
+    @php
+        $viteManifestPath = public_path('build/manifest.json');
+        $viteScript = null;
+
+        if (is_file($viteManifestPath)) {
+            $viteManifest = json_decode(file_get_contents($viteManifestPath), true) ?: [];
+            $viteScript = $viteManifest['resources/js/app.js']['file'] ?? null;
+        }
+    @endphp
+
+    @if ($viteScript)
+        <script type="module" src="{{ asset('build/'.$viteScript) }}"></script>
+    @endif
 </head>
 <body>
     <header class="site-header">
