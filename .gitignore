@@ -19,3 +19,8 @@ yarn-error.log
 /.vscode
 /public/uploads/*
 !/public/uploads/.gitignore
+
+/database_backup*
+*.sql
+*.dump
+*.backup
